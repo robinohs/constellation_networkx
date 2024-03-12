@@ -1,5 +1,5 @@
 use crate::groundstation::Groundstation;
-use crate::helper::{self, nullpi, twopi};
+use crate::helper::{self, nullpi, onepi, twopi};
 
 use crate::networkx_graph::{Graph as NxGraph, Node as NxNode};
 
@@ -10,6 +10,7 @@ use nyx_space::time::{Duration, Epoch};
 
 use pyo3::pyclass;
 use rayon::prelude::*;
+use uom::si::angle::degree;
 use uom::si::f64::Time;
 
 use uom::si::time::millisecond;
@@ -22,9 +23,27 @@ use self::node::{Node, NodeId};
 
 pub(crate) mod node;
 
+#[pyclass]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum ConstellationType {
+    Star,
+    Delta,
+}
+
+impl ConstellationType {
+    /// Calculates the delta of RAAN between adjacent planes for this constellation type.
+    fn get_raan_delta(&self, number_of_planes: u32) -> Angle {
+        match self {
+            ConstellationType::Star => onepi() / number_of_planes as f64,
+            ConstellationType::Delta => twopi() / number_of_planes as f64,
+        }
+    }
+}
+
 #[pyclass(module = "constellation")]
 #[derive(Debug, Clone)]
 pub struct Constellation {
+    constellation_type: ConstellationType,
     next_free_id: NodeId,
     number_of_satellites: u32,
     number_of_planes: u32,
@@ -50,7 +69,9 @@ impl Constellation {
     ///
     /// Panics if the number of satellites is not divisible by the number of planes. <br/>
     /// Will also panic if the number of planes or satellites is equal to 0, or if the the altitude is equal or below 0km.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        constellation_type: ConstellationType,
         number_of_satellites: u32,
         number_of_planes: u32,
         inter_plane_spacing: u32,
@@ -69,7 +90,7 @@ impl Constellation {
         let sats_per_plane = number_of_satellites / number_of_planes;
 
         // ΔΩ = 2𝜋/𝑃 in [0,2𝜋]
-        let raan_delta: Angle = twopi() / number_of_planes as f64;
+        let raan_delta: Angle = constellation_type.get_raan_delta(number_of_planes);
         // ΔΦ = 2𝜋/Q in [0,2𝜋]
         let phase_difference: Angle = twopi() / sats_per_plane as f64;
         // Δ𝑓 = 2𝜋𝐹/𝑃𝑄 in [0,2𝜋)
@@ -90,7 +111,7 @@ impl Constellation {
             let plane_phase_offset: Angle = phase_offset * plane as f64;
             // iterate over satellites in plane
             for number_in_plane in 0..sats_per_plane {
-                let id = NodeId((number_in_plane + plane * sats_per_plane) as u32);
+                let id = NodeId(number_in_plane + plane * sats_per_plane);
                 // phase offset for this satellite
                 let sat_phase: Angle = phase_difference * number_in_plane as f64;
                 // argument of latitude is equal to the base offset of this plane + the phase of the satellite, mod 360.0
@@ -126,7 +147,8 @@ impl Constellation {
         }
 
         // create constellation
-        let mut cstl = Constellation {
+        let mut constellation = Constellation {
+            constellation_type,
             next_free_id: number_of_satellites.into(),
             number_of_satellites,
             number_of_planes,
@@ -136,8 +158,8 @@ impl Constellation {
             links: vec![],
             epoch: dt,
         };
-        cstl.recalculate_isls();
-        cstl
+        constellation.recalculate_satellite_connections();
+        constellation
     }
 
     /// Returns the number of nodes in this constellation,
@@ -149,6 +171,7 @@ impl Constellation {
     }
 
     /// Propagates all satellites in this constellation for the given step.
+    /// Recalculates the satellite connections and ground station visibilities.
     pub fn propagate(&mut self, step: Time) {
         // increase epoch
         self.epoch += Duration::from_f64(
@@ -161,6 +184,7 @@ impl Constellation {
         self.groundstations
             .par_iter_mut()
             .for_each(|gs| gs.update_epoch(self.epoch));
+        self.recalculate_satellite_connections();
         self.recalculate_ground_visibilities();
     }
 
@@ -192,15 +216,15 @@ impl Constellation {
         self.groundstations.push(groundstation);
     }
 
-    /// Recalculates the visibility of the satellites for the constellation using the minimal elevation assigned to the constellation.
-    pub fn recalculate_ground_visibilities(&mut self) {
+    /// Recalculates the visibility of the satellites for the constellation ground stations using the minimal elevation assigned to the constellation.
+    pub(crate) fn recalculate_ground_visibilities(&mut self) {
         self.links.retain(|link| link.link_type() == LinkType::ISL);
         let mut pairs: Vec<UndirectedLink> = self
             .groundstations
             .iter()
             .cartesian_product(&self.satellites)
             // .par_bridge()
-            .filter(|(gs, sat)| gs.is_visible(&sat))
+            .filter(|(gs, sat)| gs.is_visible(sat))
             .map(|(gs, sat)| {
                 let distance: Length = self.distance(gs.get_id(), sat.get_id());
                 UndirectedLink::new_gsl(gs.get_id(), sat.get_id(), distance)
@@ -209,28 +233,72 @@ impl Constellation {
         self.links.append(&mut pairs);
     }
 
-    pub(crate) fn get_nodes(&self) -> Vec<Box<&dyn Node>> {
-        (0..self.node_count())
-            .map_into::<NodeId>()
-            .map(|id| self.get_node(id))
-            .collect_vec()
-    }
-
-    fn recalculate_isls(&mut self) {
+    /// Recalculates the connections between satellites and their distance.
+    /// #### For Walker-STAR only:
+    /// Checks if satellites:
+    /// - are flying in the same direction (ascending or descening)
+    /// - if the latitude of each satellite in the pair is below 70°
+    pub(crate) fn recalculate_satellite_connections(&mut self) {
         self.links.retain(|link| link.link_type() == LinkType::GSL);
         let sats_per_plane = self.number_of_satellites / self.number_of_planes;
         let mut pairs: Vec<UndirectedLink> = self
             .satellites
             .iter()
             // get top and right neighbor
-            .flat_map(|sat| sat.get_top_right_neighbors(sats_per_plane, self.number_of_planes))
+            .map(|sat| sat.get_neighbors(sats_per_plane, self.number_of_planes))
             // calculate distance and create link
-            .map(|(sat_a, sat_b)| {
-                let distance: Length = self.distance(sat_a, sat_b);
-                UndirectedLink::new_isl(sat_a, sat_b, distance)
+            .flat_map(|neighbors| {
+                let current_sat_id: NodeId = neighbors.get_id();
+                let mut links = vec![];
+
+                // top neighbor
+                let top_sat_id = neighbors.get_top();
+                let top_distance: Length = self.distance(current_sat_id, top_sat_id);
+                let top_link = UndirectedLink::new_isl(current_sat_id, top_sat_id, top_distance);
+                println!("Adding link {}<->{}", current_sat_id, top_sat_id);
+                links.push(top_link);
+
+                // check link to right neighbor
+                let right_sat_id = neighbors.get_right();
+                if match self.constellation_type {
+                    ConstellationType::Star => {
+                        let current_sat = self.get_satellite(current_sat_id);
+                        let right_sat = self.get_satellite(right_sat_id);
+                        // get latitudes
+                        let current_sat_lat: Angle = current_sat.get_lat();
+                        let right_sat_lat: Angle = right_sat.get_lat();
+                        // get movements
+                        let current_sat_ascending = current_sat.is_ascending();
+                        let right_sat_ascending = right_sat.is_ascending();
+                        // check if:
+                        // - current sat is not in the last plane
+                        // - both satellites lats are below 70°
+                        // - both are moving in the same direction
+                        current_sat.get_plane() != self.number_of_planes - 1
+                            && current_sat_lat.abs() < Angle::new::<degree>(70.0)
+                            && right_sat_lat.abs() < Angle::new::<degree>(70.0)
+                            && current_sat_ascending == right_sat_ascending
+                    }
+                    ConstellationType::Delta => true,
+                } {
+                    let right_distance: Length = self.distance(current_sat_id, right_sat_id);
+                    let right_link =
+                        UndirectedLink::new_isl(current_sat_id, right_sat_id, right_distance);
+                    links.push(right_link);
+                    println!("Adding link {}<->{}", current_sat_id, right_sat_id);
+                }
+
+                links
             })
             .collect();
         self.links.append(&mut pairs);
+    }
+
+    pub(crate) fn get_nodes(&self) -> Vec<&dyn Node> {
+        (0..self.node_count())
+            .map_into::<NodeId>()
+            .map(|id| self.get_node(id))
+            .collect_vec()
     }
 
     /// Returns the next free ID for further usage.
@@ -246,12 +314,12 @@ impl Constellation {
         tmp
     }
 
-    fn get_node(&self, id: NodeId) -> Box<&dyn Node> {
+    fn get_node(&self, id: NodeId) -> &dyn Node {
         assert!(id < self.next_free_id);
         if id < NodeId(self.number_of_satellites) {
-            Box::new(self.get_satellite(id))
+            self.get_satellite(id)
         } else {
-            Box::new(self.get_groundstation(id))
+            self.get_groundstation(id)
         }
     }
 
@@ -270,22 +338,24 @@ impl Constellation {
     }
 }
 
-impl Into<NxGraph> for Constellation {
-    fn into(self) -> NxGraph {
+impl From<Constellation> for NxGraph {
+    fn from(value: Constellation) -> Self {
         let nodes = [
-            self.satellites
+            value
+                .satellites
                 .iter()
                 .cloned()
                 .map_into::<NxNode>()
                 .collect_vec(),
-            self.groundstations
+            value
+                .groundstations
                 .iter()
                 .cloned()
                 .map_into::<NxNode>()
                 .collect_vec(),
         ]
         .concat();
-        let links = self.links.iter().cloned().map_into().collect_vec();
+        let links = value.links.iter().cloned().map_into().collect_vec();
         NxGraph::new(nodes, links)
     }
 }

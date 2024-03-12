@@ -27,6 +27,42 @@ static PROPAGATOR: Lazy<
     Propagator<'_, OrbitalDynamics<'_>, nyx_space::propagators::RSSCartesianStep>,
 > = Lazy::new(|| Propagator::default(OrbitalDynamics::two_body()));
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SatelliteNeighbors {
+    id: NodeId,
+    top: NodeId,
+    right: NodeId,
+    // bottom: NodeId,
+    // left: NodeId,
+}
+
+impl SatelliteNeighbors {
+    /// Returns the NodeId of the satellite which neighbors are encoded here.
+    pub(crate) fn get_id(&self) -> NodeId {
+        self.id
+    }
+
+    /// Returns the NodeId of the top neighbor (same plane, id in plane +1).
+    pub(crate) fn get_top(&self) -> NodeId {
+        self.top
+    }
+
+    /// Returns the NodeId of the right neighbor (same id in plane, plane + 1).
+    pub(crate) fn get_right(&self) -> NodeId {
+        self.right
+    }
+
+    // /// Returns the NodeId of the top neighbor (same plane, id in plane -1).
+    // pub(crate) fn get_bottom(&self) -> NodeId {
+    //     self.bottom
+    // }
+
+    // /// Returns the NodeId of the left neighbor (same id in plane, plane - 1).
+    // pub(crate) fn get_left(&self) -> NodeId {
+    //     self.left
+    // }
+}
+
 #[pyclass(module = "satellite")]
 #[derive(Debug, Clone)]
 pub struct Satellite {
@@ -43,6 +79,7 @@ pub struct Satellite {
 }
 
 impl Satellite {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: NodeId,
         aol: Angle,
@@ -85,26 +122,51 @@ impl Satellite {
         // );
         let mut prop = PROPAGATOR.with(self.orbit);
         self.orbit = prop.for_duration(duration).unwrap();
-        self.dt = self.dt + duration;
+        self.dt += duration;
     }
 
     pub fn get_orbit(&self) -> Orbit {
         self.orbit
     }
 
-    pub fn get_top_right_neighbors(
+    pub fn is_ascending(&self) -> bool {
+        let z_movement = self.orbit.velocity().z;
+        z_movement >= 0.0
+    }
+
+    pub fn get_plane(&self) -> u32 {
+        self.plane
+    }
+
+    pub fn number_in_plane(&self) -> u32 {
+        self.number_in_plane
+    }
+
+    /// Computes all neighbor NodeIds of the given satellite in the constellation.
+    pub(crate) fn get_neighbors(
         &self,
         sats_per_plane: u32,
         number_of_planes: u32,
-    ) -> Vec<(NodeId, NodeId)> {
+    ) -> SatelliteNeighbors {
         let top_neighbor =
             ((self.number_in_plane + 1) % sats_per_plane) + self.plane * sats_per_plane;
         let right_neighbor =
             ((self.plane + 1) % number_of_planes) * sats_per_plane + self.number_in_plane;
-        vec![
-            (self.id, NodeId(top_neighbor)),
-            (self.id, NodeId(right_neighbor)),
-        ]
+        // let bottom_neighbor = (self
+        //     .number_in_plane
+        //     .checked_sub(1)
+        //     .unwrap_or(sats_per_plane - 1))
+        //     + self.plane * sats_per_plane;
+        // let left_neighbor = (self.plane.checked_sub(1).unwrap_or(number_of_planes - 1))
+        //     * sats_per_plane
+        //     + self.number_in_plane;
+        SatelliteNeighbors {
+            id: self.id,
+            top: top_neighbor.into(),
+            right: right_neighbor.into(),
+            // bottom: bottom_neighbor.into(),
+            // left: left_neighbor.into(),
+        }
     }
 }
 
@@ -118,18 +180,41 @@ impl Node for Satellite {
     }
 
     fn get_position_ecef(&self) -> NodePosition {
-        let orbit = self.orbit;
-        let x: Length = Length::new::<kilometer>(orbit.x);
-        let y: Length = Length::new::<kilometer>(orbit.y);
-        let z: Length = Length::new::<kilometer>(orbit.z);
+        let x: Length = Length::new::<kilometer>(self.orbit.x);
+        let y: Length = Length::new::<kilometer>(self.orbit.y);
+        let z: Length = Length::new::<kilometer>(self.orbit.z);
         NodePosition::new(x, y, z)
     }
 
+    fn get_x(&self) -> Length {
+        Length::new::<kilometer>(self.orbit.x)
+    }
+
+    fn get_y(&self) -> Length {
+        Length::new::<kilometer>(self.orbit.y)
+    }
+
+    fn get_z(&self) -> Length {
+        Length::new::<kilometer>(self.orbit.z)
+    }
+
     fn get_position_lla(&self) -> LLA {
-        let lat = self.get_orbit().geodetic_latitude();
-        let lon = self.get_orbit().geodetic_longitude() - 180.0;
-        let alt = self.get_orbit().geodetic_height();
+        let lat = self.orbit.geodetic_latitude();
+        let lon = self.orbit.geodetic_longitude() - 180.0;
+        let alt = self.orbit.geodetic_height();
         LLA::new(lat, lon, alt)
+    }
+
+    fn get_lat(&self) -> Angle {
+        Angle::new::<degree>(self.orbit.geodetic_latitude())
+    }
+
+    fn get_lon(&self) -> Angle {
+        Angle::new::<degree>(self.orbit.geodetic_longitude())
+    }
+
+    fn get_height(&self) -> Length {
+        Length::new::<kilometer>(self.orbit.geodetic_height())
     }
 }
 

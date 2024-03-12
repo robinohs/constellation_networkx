@@ -2,7 +2,10 @@ use std::fmt::{Display, Formatter};
 
 use pyo3::{types::PyTuple, PyObject, Python, ToPyObject};
 
-use uom::si::{f64::Length, length::kilometer};
+use uom::si::{
+    f64::{Angle, Length},
+    length::kilometer,
+};
 
 use crate::representations::lla::LLA;
 
@@ -79,9 +82,7 @@ impl NodePosition {
 
 impl ToPyObject for NodePosition {
     fn to_object(&self, py: Python<'_>) -> PyObject {
-        PyTuple::new(py, vec![self.x, self.y, self.z])
-            .to_object(py)
-            .into()
+        PyTuple::new(py, vec![self.x, self.y, self.z]).to_object(py)
     }
 }
 
@@ -89,5 +90,11 @@ pub(crate) trait Node {
     fn get_id(&self) -> NodeId;
     fn get_node_type(&self) -> NodeType;
     fn get_position_ecef(&self) -> NodePosition;
+    fn get_x(&self) -> Length;
+    fn get_y(&self) -> Length;
+    fn get_z(&self) -> Length;
     fn get_position_lla(&self) -> LLA;
+    fn get_lat(&self) -> Angle;
+    fn get_lon(&self) -> Angle;
+    fn get_height(&self) -> Length;
 }

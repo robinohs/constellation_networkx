@@ -1,14 +1,15 @@
 from ast import Dict, Tuple
-import datetime
-from typing import List
+from enum import Enum
 
-import networkx as nx
 
-class Graph:
-    pass
+class ConstellationType(Enum):
+    Star = 1
+    Delta = 2
+
 
 class Constellation:
     pass
+
 
 def create_constellation(
     satellites: int,
@@ -17,8 +18,10 @@ def create_constellation(
     altitude: int,
     inclination: float,
     mim_elevation: float,
+    constellation_type: ConstellationType
 ) -> Constellation:
     pass
+
 
 def add_groundstation(
     constellation: Constellation,
@@ -28,16 +31,20 @@ def add_groundstation(
 ) -> Constellation:
     pass
 
+
 def propagate(constellation: Constellation, step: int) -> Constellation:
     pass
 
+
 def extract_graph(constellation: Constellation) -> str:
     pass
+
 
 def extract_positions_3d(
     constellation: Constellation,
 ) -> Dict[int, Tuple[float, float, float]]:
     pass
+
 
 def project_3d_positions(
     constellation: Constellation,

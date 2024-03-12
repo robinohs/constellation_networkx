@@ -1,4 +1,4 @@
-use constellation::Constellation;
+use constellation::{Constellation, ConstellationType};
 
 use networkx_graph::Graph as NxGraph;
 use nyx_space::time::Epoch;
@@ -29,12 +29,14 @@ fn create_constellation(
     altitude: u32,
     inclination: f64,
     min_elevation: f64,
+    constellation_type: ConstellationType,
 ) -> PyResult<Constellation> {
     let altitude: Length = Length::new::<kilometer>(altitude as f64);
-    let inclination: Angle = Angle::new::<degree>(inclination as f64);
+    let inclination: Angle = Angle::new::<degree>(inclination);
     let min_elevation: Angle = Angle::new::<degree>(min_elevation);
     let epoch = Epoch::now().unwrap();
-    let constellation = Constellation::new(
+    Ok(Constellation::new(
+        constellation_type,
         satellites,
         planes,
         ipc,
@@ -42,8 +44,7 @@ fn create_constellation(
         inclination,
         epoch,
         min_elevation,
-    );
-    Ok(constellation)
+    ))
 }
 
 #[pyfunction]
@@ -125,6 +126,7 @@ fn project_3d_positions<'a>(
 /// A Python module implemented in Rust.
 #[pymodule]
 fn constellation_networkx(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<ConstellationType>()?;
     m.add_class::<Constellation>()?;
     m.add_function(wrap_pyfunction!(create_constellation, m)?)?;
     m.add_function(wrap_pyfunction!(add_groundstation, m)?)?;

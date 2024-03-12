@@ -5,10 +5,14 @@ use once_cell::sync::Lazy;
 use uom::si::{angle::degree, f64::Angle};
 
 // Load the NASA NAIF DE438 planetary ephemeris.
-static COSM: Lazy<Arc<Cosm>> = Lazy::new(|| Cosm::de438());
+static COSM: Lazy<Arc<Cosm>> = Lazy::new(Cosm::de438);
 
 pub(crate) fn nullpi() -> Angle {
     Angle::new::<degree>(0.0)
+}
+
+pub(crate) fn onepi() -> Angle {
+    Angle::new::<degree>(180.0)
 }
 
 pub(crate) fn twopi() -> Angle {

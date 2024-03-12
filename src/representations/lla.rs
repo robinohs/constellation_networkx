@@ -1,4 +1,5 @@
 #[derive(Debug, Clone, Copy)]
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) struct LLA {
     lat: f64,
     lon: f64,

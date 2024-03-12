@@ -86,11 +86,38 @@ impl Node for Groundstation {
         NodePosition::new(x, y, z)
     }
 
+    fn get_x(&self) -> Length {
+        let orbit = self.get_orbit();
+        Length::new::<kilometer>(orbit.x)
+    }
+
+    fn get_y(&self) -> Length {
+        let orbit = self.get_orbit();
+        Length::new::<kilometer>(orbit.y)
+    }
+
+    fn get_z(&self) -> Length {
+        let orbit = self.get_orbit();
+        Length::new::<kilometer>(orbit.z)
+    }
+
     fn get_position_lla(&self) -> LLA {
         let lat = self.groundstation.latitude;
         let lon = self.groundstation.longitude;
         let alt = self.groundstation.height;
         LLA::new(lat, lon, alt)
+    }
+
+    fn get_lat(&self) -> Angle {
+        Angle::new::<degree>(self.groundstation.latitude)
+    }
+
+    fn get_lon(&self) -> Angle {
+        Angle::new::<degree>(self.groundstation.latitude)
+    }
+
+    fn get_height(&self) -> Length {
+        Length::new::<kilometer>(self.groundstation.height)
     }
 }
 

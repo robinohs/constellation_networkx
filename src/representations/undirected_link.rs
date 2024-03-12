@@ -3,6 +3,7 @@ use uom::si::{f64::Length, length::kilometer};
 use crate::{constellation::node::NodeId, networkx_graph::Link as NxLink};
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum LinkType {
     ISL,
     GSL,
@@ -39,12 +40,12 @@ impl UndirectedLink {
     }
 }
 
-impl Into<NxLink> for UndirectedLink {
-    fn into(self) -> NxLink {
+impl From<UndirectedLink> for NxLink {
+    fn from(value: UndirectedLink) -> Self {
         NxLink {
-            source: self.first.into(),
-            target: self.second.into(),
-            weight: self.distance.get::<kilometer>().round() as i32,
+            source: value.first.into(),
+            target: value.second.into(),
+            weight: value.distance.get::<kilometer>().round() as i32,
         }
     }
 }
