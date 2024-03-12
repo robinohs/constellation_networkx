@@ -8,7 +8,17 @@ class ConstellationType(Enum):
 
 
 class Constellation:
-    pass
+    def add_groundstation(
+        self,
+        name: str,
+        lat: float,
+        lon: float,
+        alt: float,
+    ):
+        pass
+
+    def propagate(self, step: int):
+        pass
 
 
 def create_constellation(
@@ -20,19 +30,6 @@ def create_constellation(
     mim_elevation: float,
     constellation_type: ConstellationType
 ) -> Constellation:
-    pass
-
-
-def add_groundstation(
-    constellation: Constellation,
-    lat: float,
-    lon: float,
-    alt: float,
-) -> Constellation:
-    pass
-
-
-def propagate(constellation: Constellation, step: int) -> Constellation:
     pass
 
 

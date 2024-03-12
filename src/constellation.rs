@@ -8,7 +8,7 @@ use crate::satellite::Satellite;
 use itertools::Itertools;
 use nyx_space::time::{Duration, Epoch};
 
-use pyo3::pyclass;
+use pyo3::prelude::*;
 use rayon::prelude::*;
 use uom::si::angle::degree;
 use uom::si::f64::Time;
@@ -52,6 +52,22 @@ pub struct Constellation {
     min_elevation: Angle,
     links: Vec<UndirectedLink>,
     epoch: Epoch,
+}
+
+#[pymethods]
+impl Constellation {
+    pub fn add_groundstation(&mut self, name: String, lat: f64, lon: f64, alt: f64) {
+        let lat: Angle = Angle::new::<degree>(lat);
+        let lon: Angle = Angle::new::<degree>(lon);
+        let alt: Length = Length::new::<kilometer>(alt);
+        self.add_groundstation_lla(name, lat, lon, alt);
+        self.recalculate_ground_visibilities();
+    }
+
+    pub fn propagate(&mut self, step: i32) {
+        let step: Time = Time::new::<millisecond>(step as f64);
+        self.propagate_time(step);
+    }
 }
 
 impl Constellation {
@@ -172,7 +188,7 @@ impl Constellation {
 
     /// Propagates all satellites in this constellation for the given step.
     /// Recalculates the satellite connections and ground station visibilities.
-    pub fn propagate(&mut self, step: Time) {
+    pub fn propagate_time(&mut self, step: Time) {
         // increase epoch
         self.epoch += Duration::from_f64(
             step.get::<millisecond>(),
@@ -209,7 +225,7 @@ impl Constellation {
     /// * `lon` - Longitude of the ground station.
     /// * `alt` - The altitude of the ground station (Height above mean sea level).
     ///
-    pub fn add_groundstation(&mut self, name: String, lat: Angle, lon: Angle, alt: Length) {
+    pub fn add_groundstation_lla(&mut self, name: String, lat: Angle, lon: Angle, alt: Length) {
         let id = self.next_id();
         let groundstation =
             Groundstation::new(id, name, self.epoch, lat, lon, alt, self.min_elevation);

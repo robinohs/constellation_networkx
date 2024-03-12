@@ -9,9 +9,8 @@ use pyo3::{
 
 use uom::si::{
     angle::degree,
-    f64::{Angle, Length, Time},
+    f64::{Angle, Length},
     length::kilometer,
-    time::millisecond,
 };
 
 mod constellation;
@@ -45,31 +44,6 @@ fn create_constellation(
         epoch,
         min_elevation,
     ))
-}
-
-#[pyfunction]
-fn add_groundstation(
-    constellation: &Constellation,
-    name: String,
-    lat: f64,
-    lon: f64,
-    alt: f64,
-) -> PyResult<Constellation> {
-    let mut constellation = constellation.clone();
-    let lat: Angle = Angle::new::<degree>(lat);
-    let lon: Angle = Angle::new::<degree>(lon);
-    let alt: Length = Length::new::<kilometer>(alt);
-    constellation.add_groundstation(name, lat, lon, alt);
-    constellation.recalculate_ground_visibilities();
-    Ok(constellation)
-}
-
-#[pyfunction]
-fn propagate(constellation: &Constellation, step: i32) -> PyResult<Constellation> {
-    let mut constellation = constellation.clone();
-    let step: Time = Time::new::<millisecond>(step as f64);
-    constellation.propagate(step);
-    Ok(constellation)
 }
 
 #[pyfunction]
@@ -129,8 +103,6 @@ fn constellation_networkx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<ConstellationType>()?;
     m.add_class::<Constellation>()?;
     m.add_function(wrap_pyfunction!(create_constellation, m)?)?;
-    m.add_function(wrap_pyfunction!(add_groundstation, m)?)?;
-    m.add_function(wrap_pyfunction!(propagate, m)?)?;
     m.add_function(wrap_pyfunction!(extract_graph, m)?)?;
     m.add_function(wrap_pyfunction!(extract_positions_3d, m)?)?;
     m.add_function(wrap_pyfunction!(project_3d_positions, m)?)?;
