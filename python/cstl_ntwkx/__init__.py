@@ -1,4 +1,5 @@
 from .cstl_ntwkx import *
+from .plot import *
 
 __doc__ = cstl_ntwkx.__doc__
 if hasattr(cstl_ntwkx, "__all__"):
