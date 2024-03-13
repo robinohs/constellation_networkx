@@ -206,8 +206,7 @@ impl Node for Satellite {
     }
 
     fn get_lat(&self) -> Angle {
-        let lat = self.orbit.geodetic_latitude(); 
-        Angle::new::<degree>(lat)
+        Angle::new::<degree>(self.orbit.geodetic_latitude())
     }
 
     fn get_lon(&self) -> Angle {

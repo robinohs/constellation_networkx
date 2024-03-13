@@ -3,15 +3,36 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "constellation-networkx"
-dependencies = ["networkx==3.2.1"]
+name = "cstl_ntwkx"
+description = "Encode Walker constellations into networkx graphs suitable for Reinforcement Learning."
+readme = "README.rst"
 requires-python = ">=3.8"
+license = { file = "LICENSE" }
+keywords = [
+    "walker-star",
+    "walker-delta",
+    "walker constellations",
+    "constellations",
+    "reinforcement learning",
+    "constellation to networkx",
+    "cstl to networkx",
+    "encode constellations",
+]
+authors = [{ name = "Robin Ohs", email = "ohs@depend.uni-saarland.de" }]
+maintainers = [{ name = "Robin Ohs", email = "ohs@depend.uni-saarland.de" }]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+dependencies = ["networkx==3.2.1"]
 dynamic = ["version"]
+
+[project.urls]
+homepage = "https://depend.cs.uni-saarland.de/"
+documentation = "https://github.com/robinohs/constellation_networkx"
+repository = "https://github.com/robinohs/constellation_networkx"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+python-source = "python"

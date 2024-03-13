@@ -55,12 +55,12 @@ impl Groundstation {
     pub fn is_visible(&self, sat: &Satellite) -> bool {
         let (elevation, _, _) = self.groundstation.elevation_of(&sat.get_orbit());
         let elevation: Angle = Angle::new::<degree>(elevation);
-        println!(
-            "Elevation between GS({}) and Sat({}) is {}",
-            self.get_id(),
-            sat.get_id(),
-            elevation.get::<degree>()
-        );
+        // println!(
+        //     "Elevation between GS({}) and Sat({}) is {}",
+        //     self.get_id(),
+        //     sat.get_id(),
+        //     elevation.get::<degree>()
+        // );
         elevation >= self.min_elevation
     }
 

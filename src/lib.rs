@@ -99,7 +99,7 @@ fn project_3d_positions<'a>(
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn constellation_networkx(_py: Python, m: &PyModule) -> PyResult<()> {
+fn cstl_ntwkx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<ConstellationType>()?;
     m.add_class::<Constellation>()?;
     m.add_function(wrap_pyfunction!(create_constellation, m)?)?;
