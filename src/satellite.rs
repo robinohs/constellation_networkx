@@ -199,18 +199,23 @@ impl Node for Satellite {
     }
 
     fn get_position_lla(&self) -> LLA {
-        let lat = self.orbit.geodetic_latitude();
-        let lon = self.orbit.geodetic_longitude() - 180.0;
-        let alt = self.orbit.geodetic_height();
+        let lat = self.get_lat().get::<degree>();
+        let lon = self.get_lon().get::<degree>();
+        let alt = self.get_height().get::<kilometer>();
         LLA::new(lat, lon, alt)
     }
 
     fn get_lat(&self) -> Angle {
-        Angle::new::<degree>(self.orbit.geodetic_latitude())
+        let lat = self.orbit.geodetic_latitude(); 
+        Angle::new::<degree>(lat)
     }
 
     fn get_lon(&self) -> Angle {
-        Angle::new::<degree>(self.orbit.geodetic_longitude())
+        let mut lon = self.orbit.geodetic_longitude();
+        if lon > 180.0 {
+            lon -= 360.0;
+        }
+        Angle::new::<degree>(lon)
     }
 
     fn get_height(&self) -> Length {

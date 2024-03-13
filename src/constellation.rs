@@ -271,7 +271,7 @@ impl Constellation {
                 let top_sat_id = neighbors.get_top();
                 let top_distance: Length = self.distance(current_sat_id, top_sat_id);
                 let top_link = UndirectedLink::new_isl(current_sat_id, top_sat_id, top_distance);
-                println!("Adding link {}<->{}", current_sat_id, top_sat_id);
+                // println!("Adding link {}<->{}", current_sat_id, top_sat_id);
                 links.push(top_link);
 
                 // check link to right neighbor
@@ -301,7 +301,7 @@ impl Constellation {
                     let right_link =
                         UndirectedLink::new_isl(current_sat_id, right_sat_id, right_distance);
                     links.push(right_link);
-                    println!("Adding link {}<->{}", current_sat_id, right_sat_id);
+                    // println!("Adding link {}<->{}", current_sat_id, right_sat_id);
                 }
 
                 links
